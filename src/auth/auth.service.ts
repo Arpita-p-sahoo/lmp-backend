@@ -9,7 +9,7 @@ import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { SignupDto } from './dto/signup.dto';
 import * as bcrypt from 'bcrypt';
-import { LoginDto } from './dto/login.dt';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
