@@ -25,3 +25,7 @@ Thumbs.db
 
 # Coverage
 coverage/
+
+#git
+.gitmessage
+scripts/setup-git.ps1
