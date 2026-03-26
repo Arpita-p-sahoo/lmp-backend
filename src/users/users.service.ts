@@ -22,6 +22,8 @@ export class UsersService {
 
         // Never return the password hash to the frontend
         const { passwordHash, googleId, ...safe } = user;
+        void passwordHash;
+        void googleId;
         return safe;
     }
 
@@ -40,6 +42,8 @@ export class UsersService {
         const updated = await this.userRepo.save(user);
 
         const { passwordHash, googleId, ...safe } = updated;
+        void passwordHash;
+        void googleId;
         return safe;
     }
 
