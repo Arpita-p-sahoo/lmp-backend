@@ -6,6 +6,9 @@ import {
   Max,
   Min,
   MinLength,
+  IsDateString,
+  IsUrl,
+  IsArray,
 } from 'class-validator';
 
 export class SignupDto {
@@ -40,4 +43,17 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dob?: string;
+
+  @IsOptional()
+  @IsUrl()
+  linkedinUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  techStack?: string[];
 }

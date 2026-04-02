@@ -9,16 +9,36 @@ import { QuestionsModule } from './questions/questions.module';
 import { UsersModule } from './users/users.module';
 import { CommentsModule } from './comments/comments.module';
 import { JobsModule } from './jobs/jobs.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
+
+// Redis cache manager
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-ioredis-yet';
 
 @Module({
   imports: [
-    // 1. Load .env file globally across the whole app
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
     }),
 
-    // 2. Connect to PostgreSQL using values from .env
+    // Redis cache — available globally across all modules
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const store = await redisStore({
+          socket: {
+            host: configService.get<string>('redis.host'),
+            port: configService.get<number>('redis.port'),
+          },
+          ttl: 300,
+        });
+        return { store };
+      },
+      inject: [ConfigService],
+    }),
+
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -29,16 +49,18 @@ import { JobsModule } from './jobs/jobs.module';
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.name'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // NEVER true in production — we use migrations
-        logging: true, // shows SQL queries in terminal (helpful while learning)
+        synchronize: false,
+        logging: true,
       }),
       inject: [ConfigService],
     }),
+
     AuthModule,
     QuestionsModule,
     UsersModule,
     CommentsModule,
     JobsModule,
+    LeaderboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -45,7 +45,28 @@ export class QuestionsService {
     // Increment user's questionsPosted counter
     await this.userRepo.increment({ id: authorId }, 'questionsPosted', 1);
 
-    return saved;
+    const created = await this.questionRepo
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.author', 'author')
+      .select([
+        'q.id',
+        'q.title',
+        'q.techTag',
+        'q.hashtags',
+        'q.voteCount',
+        'q.commentCount',
+        'q.isHot',
+        'q.createdAt',
+        'author.id',
+        'author.name',
+        'author.avatarUrl',
+        'author.designation',
+      ])
+      .where('q.id = :id', { id: saved.id })
+      .getOne();
+
+    if (!created) throw new NotFoundException('Question not found');
+    return created;
   }
 
   // ─── GET FEED ─────────────────────────────────────────────

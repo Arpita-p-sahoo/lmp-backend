@@ -37,6 +37,9 @@ export class AuthService {
         experience: user.experience,
         age: user.age,
         gender: user.gender,
+        dob: user.dob,
+        linkedinUrl: user.linkedinUrl,
+        techStack: user.techStack,
       }),
     );
     const accessToken = await this.jwtService.signAsync({
