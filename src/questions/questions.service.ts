@@ -8,6 +8,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Question } from './entities/question.entity';
 import { Vote } from './entities/vote.entity';
 import { SavedQuestion } from './entities/saved-question.entity';
+import { Comment } from '../comments/entities/comment.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { QuestionsQueryDto } from './dto/questions-query.dto';
@@ -23,6 +24,9 @@ export class QuestionsService {
 
     @InjectRepository(SavedQuestion)
     private savedRepo: Repository<SavedQuestion>,
+
+    @InjectRepository(Comment)
+    private commentRepo: Repository<Comment>,
 
     @InjectRepository(User)
     private userRepo: Repository<User>,
@@ -53,10 +57,12 @@ export class QuestionsService {
         'q.title',
         'q.techTag',
         'q.hashtags',
+        'q.authorId',
         'q.voteCount',
         'q.commentCount',
         'q.isHot',
         'q.createdAt',
+        'q.updatedAt',
         'author.id',
         'author.name',
         'author.avatarUrl',
@@ -113,6 +119,20 @@ export class QuestionsService {
 
     const [questions, total] = await qb.getManyAndCount();
 
+    const questionIds = questions.map((q) => q.id);
+    const commentCounts = new Map<string, number>();
+    if (questionIds.length > 0) {
+      const rows = await this.commentRepo
+        .createQueryBuilder('c')
+        .select('c.questionId', 'questionId')
+        .addSelect('COUNT(*)', 'count')
+        .where('c.questionId IN (:...ids)', { ids: questionIds })
+        .groupBy('c.questionId')
+        .getRawMany<{ questionId: string; count: string }>();
+
+      rows.forEach((r) => commentCounts.set(r.questionId, Number(r.count)));
+    }
+
     // If user is logged in, check which questions they voted/saved
     let votedIds = new Set<string>();
     let savedIds = new Set<string>();
@@ -127,6 +147,7 @@ export class QuestionsService {
     // Attach isVoted and isSaved flags to each question
     const data = questions.map((q) => ({
       ...q,
+      commentCount: commentCounts.get(q.id) ?? 0,
       isVoted: votedIds.has(q.id),
       isSaved: savedIds.has(q.id),
     }));
@@ -142,10 +163,27 @@ export class QuestionsService {
 
   // ─── GET ONE ──────────────────────────────────────────────
   async findOne(id: string, userId?: string) {
-    const question = await this.questionRepo.findOne({
-      where: { id },
-      relations: ['author'],
-    });
+    const question = await this.questionRepo
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.author', 'author')
+      .select([
+        'q.id',
+        'q.title',
+        'q.techTag',
+        'q.hashtags',
+        'q.authorId',
+        'q.voteCount',
+        'q.commentCount',
+        'q.isHot',
+        'q.createdAt',
+        'q.updatedAt',
+        'author.id',
+        'author.name',
+        'author.avatarUrl',
+        'author.designation',
+      ])
+      .where('q.id = :id', { id })
+      .getOne();
 
     if (!question) throw new NotFoundException('Question not found');
 
@@ -161,7 +199,33 @@ export class QuestionsService {
       }));
     }
 
-    return { ...question, isVoted, isSaved };
+    const comments = await this.commentRepo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.author', 'author')
+      .select([
+        'c.id',
+        'c.questionId',
+        'c.authorId',
+        'c.text',
+        'c.likeCount',
+        'c.dislikeCount',
+        'c.createdAt',
+        'author.id',
+        'author.name',
+        'author.avatarUrl',
+        'author.designation',
+      ])
+      .where('c.questionId = :questionId', { questionId: id })
+      .orderBy('c.createdAt', 'ASC')
+      .getMany();
+
+    return {
+      ...question,
+      commentCount: comments.length,
+      isVoted,
+      isSaved,
+      comments,
+    };
   }
 
   // ─── UPDATE ───────────────────────────────────────────────

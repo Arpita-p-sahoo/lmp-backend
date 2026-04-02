@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Comment } from './entities/comment.entity';
 import { CommentReaction } from './entities/comment.reaction.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { Question } from '../questions/entities/question.entity';
 
 @Injectable()
 export class CommentsService {
@@ -16,6 +17,8 @@ export class CommentsService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(CommentReaction)
     private readonly reactionRepo: Repository<CommentReaction>,
+    @InjectRepository(Question)
+    private readonly questionRepo: Repository<Question>,
   ) {}
 
   async findByQuestion(
@@ -26,6 +29,19 @@ export class CommentsService {
     const qb = this.commentRepo
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.author', 'author')
+      .select([
+        'c.id',
+        'c.questionId',
+        'c.authorId',
+        'c.text',
+        'c.likeCount',
+        'c.dislikeCount',
+        'c.createdAt',
+        'author.id',
+        'author.name',
+        'author.avatarUrl',
+        'author.designation',
+      ])
       .where('c.questionId = :questionId', { questionId });
 
     if (sort === 'top') {
@@ -57,28 +73,65 @@ export class CommentsService {
   }
 
   async create(questionId: string, dto: CreateCommentDto, userId: string) {
-    const created = this.commentRepo.create({
-      questionId,
-      authorId: userId,
-      text: dto.text,
-    });
-    const saved = await this.commentRepo.save(created);
-    return this.commentRepo.findOne({
-      where: { id: saved.id },
-      relations: ['author'],
+    return this.commentRepo.manager.transaction(async (em) => {
+      const questions = em.getRepository(Question);
+      const comments = em.getRepository(Comment);
+
+      const question = await questions.findOne({ where: { id: questionId } });
+      if (!question) throw new NotFoundException('Question not found');
+
+      const saved = await comments.save(
+        comments.create({
+          questionId,
+          authorId: userId,
+          text: dto.text,
+        }),
+      );
+
+      await questions.increment({ id: questionId }, 'commentCount', 1);
+
+      const comment = await comments
+        .createQueryBuilder('c')
+        .leftJoinAndSelect('c.author', 'author')
+        .select([
+          'c.id',
+          'c.questionId',
+          'c.authorId',
+          'c.text',
+          'c.likeCount',
+          'c.dislikeCount',
+          'c.createdAt',
+          'author.id',
+          'author.name',
+          'author.avatarUrl',
+          'author.designation',
+        ])
+        .where('c.id = :id', { id: saved.id })
+        .getOne();
+
+      if (!comment) throw new NotFoundException('Comment not found');
+      return comment;
     });
   }
 
   async remove(id: string, userId: string) {
-    const existing = await this.commentRepo.findOne({ where: { id } });
-    if (!existing) {
-      throw new NotFoundException('Comment not found');
-    }
-    if (existing.authorId !== userId) {
-      throw new ForbiddenException('You can only delete your own comment');
-    }
-    await this.commentRepo.delete({ id });
-    return { deleted: true };
+    return this.commentRepo.manager.transaction(async (em) => {
+      const comments = em.getRepository(Comment);
+      const questions = em.getRepository(Question);
+
+      const existing = await comments.findOne({ where: { id } });
+      if (!existing) {
+        throw new NotFoundException('Comment not found');
+      }
+      if (existing.authorId !== userId) {
+        throw new ForbiddenException('You can only delete your own comment');
+      }
+
+      await comments.delete({ id });
+      await questions.decrement({ id: existing.questionId }, 'commentCount', 1);
+
+      return { deleted: true };
+    });
   }
 
   async react(id: string, dto: { type: 'like' | 'dislike' }, userId: string) {
