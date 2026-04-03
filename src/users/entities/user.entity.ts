@@ -24,10 +24,19 @@ export class User {
   avatarUrl: string;
 
   @Column({ nullable: true })
+  bannerUrl: string;
+
+  @Column({ nullable: true })
   designation: string;
 
   @Column({ nullable: true })
   organisation: string;
+
+  @Column({ type: 'text', nullable: true })
+  address: string;
+
+  @Column({ nullable: true })
+  highestEducation: string;
 
   @Column({ nullable: true })
   experience: string;

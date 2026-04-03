@@ -7,6 +7,7 @@ import {
   Max,
   IsDateString,
   IsUrl,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateUserDto {
@@ -21,6 +22,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   organisation?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  highestEducation?: string;
 
   @IsOptional()
   @IsString()
@@ -41,6 +50,7 @@ export class UpdateUserDto {
   dob?: string;
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== '')
   @IsUrl()
   linkedinUrl?: string;
 
@@ -50,6 +60,12 @@ export class UpdateUserDto {
   techStack?: string[];
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== '')
   @IsUrl()
   avatarUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== '')
+  @IsUrl()
+  bannerUrl?: string;
 }
