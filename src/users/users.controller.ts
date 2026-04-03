@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   ParseUUIDPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -25,6 +26,17 @@ interface AuthenticatedRequest extends ExpressRequest {
 @Controller('users')
 export class UsersController {
   constructor(private usersService: UsersService) {}
+
+  @Get()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all users (test only)' })
+  getAllUsers() {
+    if ((process.env.NODE_ENV ?? '').toLowerCase() === 'production') {
+      throw new NotFoundException();
+    }
+    return this.usersService.getAllUsersForTest();
+  }
 
   @Get('me')
   @UseGuards(AuthGuard('jwt'))

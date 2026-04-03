@@ -4,8 +4,9 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Job } from './entities/job.entity';
+import { SavedJob } from './entities/saved-job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JobsQueryDto } from './dto/jobs-query.dto';
 
@@ -14,6 +15,9 @@ export class JobsService {
   constructor(
     @InjectRepository(Job)
     private jobRepo: Repository<Job>,
+
+    @InjectRepository(SavedJob)
+    private savedJobRepo: Repository<SavedJob>,
   ) {}
 
   // ─── CREATE JOB ───────────────────────────────────────────
@@ -26,7 +30,7 @@ export class JobsService {
   }
 
   // ─── GET ALL JOBS WITH FILTERS ────────────────────────────
-  async findAll(query: JobsQueryDto) {
+  async findAll(query: JobsQueryDto, userId?: string) {
     const { type, techTag, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
@@ -66,8 +70,22 @@ export class JobsService {
 
     const [jobs, total] = await qb.getManyAndCount();
 
+    let savedIds = new Set<string>();
+    if (userId && jobs.length > 0) {
+      const saved = await this.savedJobRepo.find({
+        where: {
+          userId,
+          jobId: In(jobs.map((j) => j.id)),
+        },
+      });
+      savedIds = new Set(saved.map((s) => s.jobId));
+    }
+
     return {
-      data: jobs,
+      data: jobs.map((j) => ({
+        ...j,
+        isSaved: savedIds.has(j.id),
+      })),
       total,
       page,
       limit,
@@ -76,14 +94,74 @@ export class JobsService {
   }
 
   // ─── GET ONE JOB ──────────────────────────────────────────
-  async findOne(id: string): Promise<Job> {
-    const job = await this.jobRepo.findOne({
-      where: { id },
-      relations: ['poster'],
-    });
+  async findOne(id: string, userId?: string) {
+    const job = await this.jobRepo
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.poster', 'poster')
+      .select([
+        'job.id',
+        'job.title',
+        'job.company',
+        'job.location',
+        'job.type',
+        'job.experience',
+        'job.salary',
+        'job.techStack',
+        'job.description',
+        'job.createdAt',
+        'poster.id',
+        'poster.name',
+        'poster.avatarUrl',
+        'poster.designation',
+      ])
+      .where('job.id = :id', { id })
+      .getOne();
 
     if (!job) throw new NotFoundException('Job not found');
-    return job;
+
+    let isSaved = false;
+    if (userId) {
+      isSaved = !!(await this.savedJobRepo.findOne({
+        where: { jobId: id, userId },
+      }));
+    }
+
+    return {
+      ...job,
+      isSaved,
+    };
+  }
+
+  // ─── SAVE TOGGLE ──────────────────────────────────────────
+  async toggleSave(jobId: string, userId: string) {
+    const job = await this.jobRepo.findOne({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Job not found');
+
+    const existing = await this.savedJobRepo.findOne({
+      where: { jobId, userId },
+    });
+
+    if (existing) {
+      await this.savedJobRepo.delete({ jobId, userId });
+      return { saved: false, message: 'Removed from saved' };
+    }
+
+    await this.savedJobRepo.save({ jobId, userId });
+    return { saved: true, message: 'Job saved' };
+  }
+
+  // ─── SAVED JOBS ───────────────────────────────────────────
+  async getSaved(userId: string) {
+    const saved = await this.savedJobRepo.find({
+      where: { userId },
+      relations: ['job', 'job.poster'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return saved.map((s) => ({
+      ...s.job,
+      isSaved: true,
+    }));
   }
 
   // ─── DELETE JOB ───────────────────────────────────────────

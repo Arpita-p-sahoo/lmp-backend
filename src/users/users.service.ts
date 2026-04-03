@@ -12,6 +12,46 @@ export class UsersService {
         private userRepo: Repository<User>,
     ) { }
 
+    async getAllUsersForTest(): Promise<
+        Array<
+            Pick<
+                User,
+                | 'id'
+                | 'email'
+                | 'name'
+                | 'avatarUrl'
+                | 'designation'
+                | 'organisation'
+                | 'techStack'
+                | 'streak'
+                | 'questionsPosted'
+                | 'totalVotes'
+                | 'createdAt'
+            >
+        >
+    > {
+        const users = await this.userRepo
+            .createQueryBuilder('u')
+            .select([
+                'u.id',
+                'u.email',
+                'u.name',
+                'u.avatarUrl',
+                'u.designation',
+                'u.organisation',
+                'u.techStack',
+                'u.streak',
+                'u.questionsPosted',
+                'u.totalVotes',
+                'u.createdAt',
+            ])
+            .orderBy('u.createdAt', 'DESC')
+            .limit(200)
+            .getMany();
+
+        return users;
+    }
+
     // Get current logged in user's full profile
     async getMe(userId: string): Promise<Partial<User>> {
         const user = await this.userRepo.findOne({
@@ -58,10 +98,12 @@ export class UsersService {
         // Public profile shows less info than your own profile
         return {
             id: user.id,
+            email: user.email,
             name: user.name,
             avatarUrl: user.avatarUrl,
             designation: user.designation,
             organisation: user.organisation,
+            linkedinUrl: user.linkedinUrl,
             techStack: user.techStack,
             streak: user.streak,
             questionsPosted: user.questionsPosted,

@@ -1,5 +1,6 @@
 import {
   Controller,
+  ExecutionContext,
   Get,
   Post,
   Delete,
@@ -15,13 +16,24 @@ import { AuthGuard } from '@nestjs/passport';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JobsQueryDto } from './dto/jobs-query.dto';
-import { Request as ExpressRequest } from 'express';
+import type { Request as ExpressRequest } from 'express';
 
-interface AuthenticatedRequest extends ExpressRequest {
-  user: {
-    id: string;
-    email: string;
-  };
+type JwtUser = { id: string; email: string };
+type JwtRequest = ExpressRequest & { user?: JwtUser };
+type JwtAuthedRequest = ExpressRequest & { user: JwtUser };
+
+class OptionalJwtGuard extends AuthGuard('jwt') {
+  handleRequest<TUser = JwtUser | null>(
+    err: unknown,
+    user: TUser,
+    _info: unknown,
+    _context: ExecutionContext,
+  ): TUser {
+    void _info;
+    void _context;
+    if (err) return null as TUser;
+    return user ?? (null as TUser);
+  }
 }
 
 @ApiTags('jobs')
@@ -30,23 +42,44 @@ export class JobsController {
   constructor(private jobsService: JobsService) {}
 
   @Get()
+  @UseGuards(OptionalJwtGuard)
   @ApiOperation({ summary: 'Get all job listings with optional filters' })
-  findAll(@Query() query: JobsQueryDto) {
-    return this.jobsService.findAll(query);
+  findAll(@Query() query: JobsQueryDto, @Request() req: JwtRequest) {
+    return this.jobsService.findAll(query, req.user?.id);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a single job listing' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.jobsService.findOne(id);
+  @Get('saved')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my saved jobs' })
+  getSaved(@Request() req: JwtAuthedRequest) {
+    return this.jobsService.getSaved(req.user.id);
   }
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Post a new job listing' })
-  create(@Body() dto: CreateJobDto, @Request() req: AuthenticatedRequest) {
+  create(@Body() dto: CreateJobDto, @Request() req: JwtAuthedRequest) {
     return this.jobsService.create(dto, req.user.id);
+  }
+
+  @Get(':id')
+  @UseGuards(OptionalJwtGuard)
+  @ApiOperation({ summary: 'Get a single job listing' })
+  findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: JwtRequest) {
+    return this.jobsService.findOne(id, req.user?.id);
+  }
+
+  @Post(':id/save')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Toggle save on a job' })
+  toggleSave(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: JwtAuthedRequest,
+  ) {
+    return this.jobsService.toggleSave(id, req.user.id);
   }
 
   @Delete(':id')
@@ -55,7 +88,7 @@ export class JobsController {
   @ApiOperation({ summary: 'Delete your job listing' })
   remove(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: AuthenticatedRequest,
+    @Request() req: JwtAuthedRequest,
   ) {
     return this.jobsService.remove(id, req.user.id);
   }
