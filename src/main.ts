@@ -43,8 +43,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(process.env.PORT ?? 3333);
-  console.log(`🚀 Server running on http://localhost:3333`);
-  console.log(`📖 API docs at http://localhost:3333/api/docs`);
+  console.log(`Server running on http://localhost:3333`);
+  console.log(`API docs at http://localhost:3333/api/docs`);
 }
 bootstrap().catch((err) => {
   console.error(err);

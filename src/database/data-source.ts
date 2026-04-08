@@ -4,11 +4,25 @@ dotenv.config();
 
 export default new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  ...(process.env.DATABASE_URL
+    ? { url: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST,
+        port: parseInt(process.env.DB_PORT || '5432', 10),
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      }),
+  ...(process.env.DB_SSL === 'true' ||
+  (process.env.DATABASE_URL ?? '').includes('sslmode=require')
+    ? {
+        ssl: {
+          rejectUnauthorized:
+            (process.env.DB_SSL_REJECT_UNAUTHORIZED ?? '').toLowerCase() ===
+            'true',
+        },
+      }
+    : {}),
   entities: ['src/**/*.entity.ts'],
   migrations: ['src/database/migrations/*.ts'],
 });

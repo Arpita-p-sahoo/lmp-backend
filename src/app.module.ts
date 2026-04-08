@@ -41,17 +41,38 @@ import { redisStore } from 'cache-manager-ioredis-yet';
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('database.host'),
-        port: configService.get<number>('database.port'),
-        username: configService.get<string>('database.username'),
-        password: configService.get<string>('database.password'),
-        database: configService.get<string>('database.name'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
-        logging: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const url = configService.get<string>('database.url');
+        const ssl = configService.get<boolean>('database.ssl');
+        const sslRejectUnauthorized = configService.get<boolean>(
+          'database.sslRejectUnauthorized',
+        );
+        const base = {
+          type: 'postgres' as const,
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: false,
+          logging: true,
+        };
+        const sslOption = ssl
+          ? { ssl: { rejectUnauthorized: !!sslRejectUnauthorized } }
+          : {};
+        if (url) {
+          return {
+            ...base,
+            url,
+            ...sslOption,
+          };
+        }
+        return {
+          ...base,
+          host: configService.get<string>('database.host'),
+          port: configService.get<number>('database.port'),
+          username: configService.get<string>('database.username'),
+          password: configService.get<string>('database.password'),
+          database: configService.get<string>('database.name'),
+          ...sslOption,
+        };
+      },
       inject: [ConfigService],
     }),
 
