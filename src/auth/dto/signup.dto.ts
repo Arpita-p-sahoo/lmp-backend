@@ -9,6 +9,7 @@ import {
   IsDateString,
   IsUrl,
   IsArray,
+  ValidateIf,
 } from 'class-validator';
 
 export class SignupDto {
@@ -49,8 +50,14 @@ export class SignupDto {
   dob?: string;
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== '')
   @IsUrl()
   linkedinUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== '')
+  @IsUrl()
+  avatarUrl?: string;
 
   @IsOptional()
   @IsArray()

@@ -32,6 +32,7 @@ export class AuthService {
         email: user.email,
         passwordHash,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         designation: user.designation,
         organisation: user.organisation,
         experience: user.experience,
