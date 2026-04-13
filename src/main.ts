@@ -130,6 +130,10 @@ class HttpLoggerInterceptor implements NestInterceptor {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const httpServer = app.getHttpAdapter().getInstance() as {
+    set: (setting: string, value: unknown) => void;
+  };
+  httpServer.set('trust proxy', 1);
 
   // Security headers
   app.use(helmet());
@@ -154,7 +158,7 @@ async function bootstrap() {
   const isProd = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
   const frontendUrl = process.env.FRONTEND_URL;
   app.enableCors({
-    origin: isProd ? (frontendUrl ? [frontendUrl] : false) : true,
+    origin: isProd ? (frontendUrl ? [frontendUrl] : true) : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

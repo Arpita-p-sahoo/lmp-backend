@@ -2,6 +2,8 @@ import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+const baseDir = __dirname.replace(/\\/g, '/');
+
 export default new DataSource({
   type: 'postgres',
   ...(process.env.DATABASE_URL
@@ -23,6 +25,6 @@ export default new DataSource({
         },
       }
     : {}),
-  entities: ['src/**/*.entity.ts'],
-  migrations: ['src/database/migrations/*.ts'],
+  entities: [`${baseDir}/../**/*.entity{.ts,.js}`],
+  migrations: [`${baseDir}/migrations/*{.ts,.js}`],
 });
