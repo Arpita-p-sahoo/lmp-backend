@@ -71,6 +71,9 @@ export class User {
   @Column({ unique: true, nullable: true })
   googleId: string;
 
+  @Column({ default: 'local' })
+  provider: string;
+
   @Column({ default: false })
   isVerified: boolean;
 

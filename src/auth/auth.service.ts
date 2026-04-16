@@ -102,6 +102,69 @@ export class AuthService {
     };
   }
 
+  async findOrCreateGoogleUser(
+    googleUser: {
+      googleId: string;
+      email: string;
+      name: string;
+      avatarUrl: string;
+      provider: string;
+    },
+    mode: 'login' | 'signup' = 'login',
+  ): Promise<{ accessToken: string; user: Partial<User> }> {
+    const userByGoogleId = await this.userRepository.findOne({
+      where: { googleId: googleUser.googleId },
+    });
+
+    if (userByGoogleId) {
+      return {
+        accessToken: this.generateToken(userByGoogleId),
+        user: this.sanitizeUser(userByGoogleId),
+      };
+    }
+
+    if (mode === 'login') {
+      throw new UnauthorizedException(
+        'Google account not registered. Please sign up with Google first.',
+      );
+    }
+
+    const userByEmail = await this.userRepository.findOne({
+      where: { email: googleUser.email },
+    });
+
+    if (userByEmail) {
+      if (userByEmail.provider !== 'google') {
+        throw new ConflictException(
+          'Email already registered. Please login using email and password.',
+        );
+      }
+      userByEmail.googleId = googleUser.googleId;
+      userByEmail.avatarUrl = googleUser.avatarUrl;
+      const saved = await this.userRepository.save(userByEmail);
+      return {
+        accessToken: this.generateToken(saved),
+        user: this.sanitizeUser(saved),
+      };
+    }
+
+    const newUser = this.userRepository.create({
+      email: googleUser.email,
+      name: googleUser.name,
+      avatarUrl: googleUser.avatarUrl,
+      googleId: googleUser.googleId,
+      provider: 'google',
+      techStack: [], // default empty array
+    });
+
+    const saved = await this.userRepository.save(newUser);
+
+    return {
+      accessToken: this.generateToken(saved),
+      user: this.sanitizeUser(saved),
+    };
+  }
+
   // Generates a JWT token containing userId and email
   private generateToken(user: User): string {
     return this.jwtService.sign({
