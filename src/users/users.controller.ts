@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   NotFoundException,
   Post,
+  Delete,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -66,6 +67,56 @@ export class UsersController {
   @ApiOperation({ summary: 'Update my profile' })
   updateMe(@Body() dto: UpdateUserDto, @Request() req: AuthenticatedRequest) {
     return this.usersService.updateMe(req.user.id, dto);
+  }
+
+  @Get('me/following')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get users I follow' })
+  getMyFollowing(@Request() req: AuthenticatedRequest) {
+    return this.usersService.getFollowing(req.user.id);
+  }
+
+  @Get('me/followers')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my followers' })
+  getMyFollowers(@Request() req: AuthenticatedRequest) {
+    return this.usersService.getFollowers(req.user.id);
+  }
+
+  @Post(':id/follow')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Follow a user' })
+  followUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.usersService.followUser(req.user.id, id);
+  }
+
+  @Delete(':id/follow')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Unfollow a user' })
+  unfollowUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.usersService.unfollowUser(req.user.id, id);
+  }
+
+  @Get(':id/following')
+  @ApiOperation({ summary: "Get a user's following list" })
+  getUserFollowing(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.getFollowing(id);
+  }
+
+  @Get(':id/followers')
+  @ApiOperation({ summary: "Get a user's followers list" })
+  getUserFollowers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.getFollowers(id);
   }
 
   @Get(':id')

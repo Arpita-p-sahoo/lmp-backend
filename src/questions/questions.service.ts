@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Brackets, Repository, DataSource } from 'typeorm';
 import { Question } from './entities/question.entity';
 import { Vote } from './entities/vote.entity';
 import { SavedQuestion } from './entities/saved-question.entity';
@@ -12,6 +12,7 @@ import { Comment } from '../comments/entities/comment.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { QuestionsQueryDto } from './dto/questions-query.dto';
+import { UserFollow } from '../users/entities/user-follow.entity';
 
 @Injectable()
 export class QuestionsService {
@@ -145,6 +146,95 @@ export class QuestionsService {
     }
 
     // Attach isVoted and isSaved flags to each question
+    const data = questions.map((q) => ({
+      ...q,
+      commentCount: commentCounts.get(q.id) ?? 0,
+      isVoted: votedIds.has(q.id),
+      isSaved: savedIds.has(q.id),
+    }));
+
+    return {
+      data,
+      total,
+      page: pageNumber,
+      limit: pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async getFollowingFeed(query: QuestionsQueryDto, userId: string) {
+    const { page, limit, techTag, sort } = query;
+    const pageNumber = page ?? 1;
+    const pageSize = limit ?? 20;
+    const skip = (pageNumber - 1) * pageSize;
+
+    const qb = this.questionRepo
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.author', 'author')
+      .select([
+        'q.id',
+        'q.title',
+        'q.techTag',
+        'q.hashtags',
+        'q.voteCount',
+        'q.commentCount',
+        'q.isHot',
+        'q.createdAt',
+        'author.id',
+        'author.name',
+        'author.avatarUrl',
+        'author.designation',
+      ])
+      .setParameter('userId', userId);
+
+    const sub = qb
+      .subQuery()
+      .select('f.followingId')
+      .from(UserFollow, 'f')
+      .where('f.followerId = :userId')
+      .getQuery();
+
+    qb.where(
+      new Brackets((b) => {
+        b.where('q.authorId = :userId').orWhere(`q.authorId IN ${sub}`);
+      }),
+    );
+
+    if (techTag) {
+      qb.andWhere('q.techTag = :techTag', { techTag });
+    }
+
+    if (sort === 'hot') {
+      qb.orderBy('q.voteCount', 'DESC');
+    } else if (sort === 'top') {
+      qb.orderBy('q.voteCount', 'DESC').addOrderBy('q.createdAt', 'DESC');
+    } else {
+      qb.orderBy('q.createdAt', 'DESC');
+    }
+
+    qb.skip(skip).take(pageSize);
+
+    const [questions, total] = await qb.getManyAndCount();
+
+    const questionIds = questions.map((q) => q.id);
+    const commentCounts = new Map<string, number>();
+    if (questionIds.length > 0) {
+      const rows = await this.commentRepo
+        .createQueryBuilder('c')
+        .select('c.questionId', 'questionId')
+        .addSelect('COUNT(*)', 'count')
+        .where('c.questionId IN (:...ids)', { ids: questionIds })
+        .groupBy('c.questionId')
+        .getRawMany<{ questionId: string; count: string }>();
+
+      rows.forEach((r) => commentCounts.set(r.questionId, Number(r.count)));
+    }
+
+    const votes = await this.voteRepo.find({ where: { userId } });
+    const saves = await this.savedRepo.find({ where: { userId } });
+    const votedIds = new Set(votes.map((v) => v.questionId));
+    const savedIds = new Set(saves.map((s) => s.questionId));
+
     const data = questions.map((q) => ({
       ...q,
       commentCount: commentCounts.get(q.id) ?? 0,

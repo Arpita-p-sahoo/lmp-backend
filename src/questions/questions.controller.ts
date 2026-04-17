@@ -43,6 +43,14 @@ class OptionalJwtGuard extends AuthGuard('jwt') {
 export class QuestionsController {
   constructor(private questionsService: QuestionsService) {}
 
+  @Get('following')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get question feed from users I follow' })
+  getFollowingFeed(@Query() query: QuestionsQueryDto, @Request() req: JwtAuthedRequest) {
+    return this.questionsService.getFollowingFeed(query, req.user.id);
+  }
+
   @Get()
   @UseGuards(OptionalJwtGuard)
   @ApiOperation({ summary: 'Get paginated question feed' })
