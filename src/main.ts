@@ -6,6 +6,7 @@ import {
   NestInterceptor,
   ValidationPipe,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -130,6 +131,8 @@ class HttpLoggerInterceptor implements NestInterceptor {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  app.enableShutdownHooks();
   const httpServer = app.getHttpAdapter().getInstance() as {
     set: (setting: string, value: unknown) => void;
   };
@@ -156,7 +159,7 @@ async function bootstrap() {
 
   // CORS — allow Angular frontend
   const isProd = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
-  const frontendUrl = process.env.FRONTEND_URL;
+  const frontendUrl = configService.get<string>('frontendUrl');
   app.enableCors({
     origin: isProd ? (frontendUrl ? [frontendUrl] : true) : true,
     credentials: true,
@@ -171,22 +174,26 @@ async function bootstrap() {
     exposedHeaders: ['x-request-id'],
   });
 
-  // Swagger API docs at http://localhost:3333/api/docs
-  const config = new DocumentBuilder()
-    .setTitle('LastMinPrep API')
-    .setDescription('Backend API for LastMinPrep platform')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  const swaggerEnabled =
+    (process.env.SWAGGER_ENABLED ?? '').toLowerCase() === 'true' || !isProd;
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('LastMinPrep API')
+      .setDescription('Backend API for LastMinPrep platform')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = parseInt(process.env.PORT ?? '3333', 10);
   const host = process.env.HOST ?? '0.0.0.0';
   await app.listen(port, host);
   const baseHost = host === '0.0.0.0' ? 'localhost' : host;
   console.log(`Server running on http://${baseHost}:${port}`);
-  console.log(`API docs at http://${baseHost}:${port}/api/docs`);
+  if (swaggerEnabled)
+    console.log(`API docs at http://${baseHost}:${port}/api/docs`);
 }
 bootstrap().catch((err) => {
   console.error(err);

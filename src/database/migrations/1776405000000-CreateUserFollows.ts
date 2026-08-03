@@ -22,8 +22,12 @@ export class CreateUserFollows1776405000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "public"."IDX_user_follows_followingId"`);
-    await queryRunner.query(`DROP INDEX "public"."IDX_user_follows_followerId"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_user_follows_followingId"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_user_follows_followerId"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "user_follows" DROP CONSTRAINT "FK_user_follows_following"`,
     );
@@ -33,4 +37,3 @@ export class CreateUserFollows1776405000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "user_follows"`);
   }
 }
-

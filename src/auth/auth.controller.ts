@@ -100,7 +100,7 @@ export class AuthController {
   ) {
     const { accessToken } = req.user ?? {};
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+      this.configService.get<string>('frontendUrl') || 'http://localhost:4200';
 
     if (!accessToken) {
       const err = req.googleAuthError ?? 'Google login failed';

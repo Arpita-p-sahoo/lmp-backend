@@ -47,7 +47,10 @@ export class QuestionsController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get question feed from users I follow' })
-  getFollowingFeed(@Query() query: QuestionsQueryDto, @Request() req: JwtAuthedRequest) {
+  getFollowingFeed(
+    @Query() query: QuestionsQueryDto,
+    @Request() req: JwtAuthedRequest,
+  ) {
     return this.questionsService.getFollowingFeed(query, req.user.id);
   }
 

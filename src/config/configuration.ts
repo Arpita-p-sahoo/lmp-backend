@@ -24,5 +24,8 @@ export default () => ({
     port: parseInt(process.env.REDIS_PORT ?? '', 10) || 6379,
     password: process.env.REDIS_PASSWORD,
   },
-  frontendUrl: process.env.FRONTEND_URL,
+  frontendUrl:
+    ((process.env.NODE_ENV ?? '').toLowerCase() === 'production'
+      ? process.env.FRONTEND_URL_PROD
+      : process.env.FRONTEND_URL_LOCAL) ?? process.env.FRONTEND_URL,
 });
