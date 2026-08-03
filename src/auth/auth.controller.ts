@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   Res,
+  ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
@@ -26,18 +27,54 @@ type GoogleAuthResult = {
 type GoogleAuthErrorRequest = Request & { googleAuthError?: string };
 
 class GoogleLoginGuard extends AuthGuard('google') {
+  canActivate(context: ExecutionContext) {
+    const enabled =
+      !!process.env.GOOGLE_CLIENT_ID &&
+      !!process.env.GOOGLE_CLIENT_SECRET &&
+      !!process.env.GOOGLE_CALLBACK_URL;
+    if (!enabled) {
+      throw new ServiceUnavailableException(
+        'Google OAuth is not configured on this server',
+      );
+    }
+    return super.canActivate(context);
+  }
   getAuthenticateOptions() {
     return { scope: ['email', 'profile'], state: 'login' };
   }
 }
 
 class GoogleSignupGuard extends AuthGuard('google') {
+  canActivate(context: ExecutionContext) {
+    const enabled =
+      !!process.env.GOOGLE_CLIENT_ID &&
+      !!process.env.GOOGLE_CLIENT_SECRET &&
+      !!process.env.GOOGLE_CALLBACK_URL;
+    if (!enabled) {
+      throw new ServiceUnavailableException(
+        'Google OAuth is not configured on this server',
+      );
+    }
+    return super.canActivate(context);
+  }
   getAuthenticateOptions() {
     return { scope: ['email', 'profile'], state: 'signup' };
   }
 }
 
 class GoogleCallbackGuard extends AuthGuard('google') {
+  canActivate(context: ExecutionContext) {
+    const enabled =
+      !!process.env.GOOGLE_CLIENT_ID &&
+      !!process.env.GOOGLE_CLIENT_SECRET &&
+      !!process.env.GOOGLE_CALLBACK_URL;
+    if (!enabled) {
+      throw new ServiceUnavailableException(
+        'Google OAuth is not configured on this server',
+      );
+    }
+    return super.canActivate(context);
+  }
   handleRequest<TUser = unknown>(
     err: unknown,
     user: TUser,

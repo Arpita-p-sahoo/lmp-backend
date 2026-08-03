@@ -46,13 +46,20 @@ const isGeminiEnabled =
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,
           lazyConnect: true,
+          connectTimeout: 1000,
+          retryStrategy: () => null,
         });
 
         client.on('error', () => undefined);
 
-        try {
-          await client.connect();
-        } catch {
+        const connected = await Promise.race([
+          client
+            .connect()
+            .then(() => true)
+            .catch(() => false),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1000)),
+        ]);
+        if (!connected) {
           await client.quit().catch(() => undefined);
           return {};
         }
@@ -81,6 +88,11 @@ const isGeminiEnabled =
           synchronize: isTest,
           dropSchema: isTest,
           logging: isTest ? false : !isProd,
+          retryAttempts: 1,
+          retryDelay: 1000,
+          extra: {
+            connectionTimeoutMillis: 1500,
+          },
         };
         if (isTest) {
           const testUrl = process.env.DATABASE_URL_TEST ?? url;

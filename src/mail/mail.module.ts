@@ -15,7 +15,7 @@ const isMailEnabled = (process.env.ENABLE_MAIL ?? '').toLowerCase() !== 'false';
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => {
               const { HandlebarsAdapter } =
-                await import('@nestjs-modules/mailer/dist/adapters/handlebars.adapter');
+                await import('@nestjs-modules/mailer/adapters/handlebars.adapter');
               return {
                 transport: {
                   host: configService.get<string>('MAIL_HOST'),

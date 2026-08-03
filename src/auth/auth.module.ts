@@ -10,6 +10,11 @@ import { User } from '../users/entities/user.entity';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { MailModule } from 'src/mail/mail.module';
 
+const isGoogleAuthEnabled =
+  !!process.env.GOOGLE_CLIENT_ID &&
+  !!process.env.GOOGLE_CLIENT_SECRET &&
+  !!process.env.GOOGLE_CALLBACK_URL;
+
 @Module({
   imports: [
     // Makes the User entity available for injection in this module
@@ -38,6 +43,6 @@ import { MailModule } from 'src/mail/mail.module';
     MailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, ...(isGoogleAuthEnabled ? [GoogleStrategy] : [])],
 })
 export class AuthModule {}
