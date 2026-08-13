@@ -5,10 +5,10 @@ export class AddProviderToUser1776156238518 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "saved_jobs" DROP CONSTRAINT "FK_saved_jobs_job"`,
+      `ALTER TABLE "saved_jobs" DROP CONSTRAINT IF EXISTS "FK_saved_jobs_job"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "saved_jobs" DROP CONSTRAINT "FK_saved_jobs_user"`,
+      `ALTER TABLE "saved_jobs" DROP CONSTRAINT IF EXISTS "FK_saved_jobs_user"`,
     );
     await queryRunner.query(
       `ALTER TABLE "users" ADD "provider" character varying NOT NULL DEFAULT 'local'`,
