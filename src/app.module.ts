@@ -14,7 +14,13 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
 // Redis cache manager
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisInsStore } from 'cache-manager-ioredis-yet';
+import { MailModule } from './mail/mail.module';
+import { GeminiModule } from './gemini/gemini.module';
 import Redis from 'ioredis';
+
+const isMailEnabled = (process.env.ENABLE_MAIL ?? '').toLowerCase() !== 'false';
+const isGeminiEnabled =
+  (process.env.ENABLE_GEMINI ?? '').toLowerCase() === 'true';
 
 @Module({
   imports: [
@@ -23,7 +29,6 @@ import Redis from 'ioredis';
       load: [configuration],
     }),
 
-    // Redis cache — available globally across all modules
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
@@ -41,13 +46,20 @@ import Redis from 'ioredis';
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,
           lazyConnect: true,
+          connectTimeout: 1000,
+          retryStrategy: () => null,
         });
 
         client.on('error', () => undefined);
 
-        try {
-          await client.connect();
-        } catch {
+        const connected = await Promise.race([
+          client
+            .connect()
+            .then(() => true)
+            .catch(() => false),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1000)),
+        ]);
+        if (!connected) {
           await client.quit().catch(() => undefined);
           return {};
         }
@@ -61,6 +73,10 @@ import Redis from 'ioredis';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
+        const nodeEnv = (process.env.NODE_ENV ?? '').toLowerCase();
+        const isProd = nodeEnv === 'production';
+        const isTest = nodeEnv === 'test';
+
         const url = configService.get<string>('database.url');
         const ssl = configService.get<boolean>('database.ssl');
         const sslRejectUnauthorized = configService.get<boolean>(
@@ -69,9 +85,34 @@ import Redis from 'ioredis';
         const base = {
           type: 'postgres' as const,
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: false,
-          logging: true,
+          synchronize: isTest,
+          dropSchema: isTest,
+          logging: isTest ? false : !isProd,
+          retryAttempts: 1,
+          retryDelay: 1000,
+          extra: {
+            connectionTimeoutMillis: 1500,
+          },
         };
+        if (isTest) {
+          const testUrl = process.env.DATABASE_URL_TEST ?? url;
+          if (testUrl) {
+            return {
+              ...base,
+              url: testUrl,
+              ssl: false,
+            };
+          }
+          return {
+            ...base,
+            host: configService.get<string>('database.host'),
+            port: configService.get<number>('database.port'),
+            username: configService.get<string>('database.username'),
+            password: configService.get<string>('database.password'),
+            database: configService.get<string>('database.name'),
+            ssl: false,
+          };
+        }
         const sslOption = ssl
           ? { ssl: { rejectUnauthorized: !!sslRejectUnauthorized } }
           : {};
@@ -94,13 +135,14 @@ import Redis from 'ioredis';
       },
       inject: [ConfigService],
     }),
-
     AuthModule,
     QuestionsModule,
     UsersModule,
     CommentsModule,
     JobsModule,
     LeaderboardModule,
+    ...(isMailEnabled ? [MailModule] : []),
+    ...(isGeminiEnabled ? [GeminiModule] : []),
   ],
   controllers: [AppController],
   providers: [AppService],

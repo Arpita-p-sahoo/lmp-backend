@@ -6,21 +6,24 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { SignupDto } from './dto/signup.dto';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   public async signup(user: SignupDto) {
+    const normalizedEmail = user.email.trim().toLowerCase();
     const existing = await this.userRepository.findOne({
-      where: { email: user.email },
+      where: { email: ILike(normalizedEmail) },
     });
     if (existing) {
       throw new ConflictException('Email already in use');
@@ -29,7 +32,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(user.password, 12);
     const created = await this.userRepository.save(
       this.userRepository.create({
-        email: user.email,
+        email: normalizedEmail,
         passwordHash,
         name: user.name,
         avatarUrl: user.avatarUrl,
@@ -76,14 +79,18 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
     // 1. Find user by email
     const user = await this.userRepository.findOne({
-      where: { email: dto.email },
+      where: { email: ILike(normalizedEmail) },
     });
 
     // Same error for "not found" and "wrong password"
     // Never tell attackers which one failed
     if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -99,6 +106,70 @@ export class AuthService {
     return {
       accessToken: token,
       user: this.sanitizeUser(user),
+    };
+  }
+
+  async findOrCreateGoogleUser(
+    googleUser: {
+      googleId: string;
+      email: string;
+      name: string;
+      avatarUrl: string;
+      provider: string;
+    },
+    mode: 'login' | 'signup' = 'login',
+  ): Promise<{ accessToken: string; user: Partial<User> }> {
+    const normalizedEmail = googleUser.email.trim().toLowerCase();
+    const userByGoogleId = await this.userRepository.findOne({
+      where: { googleId: googleUser.googleId },
+    });
+
+    if (userByGoogleId) {
+      return {
+        accessToken: this.generateToken(userByGoogleId),
+        user: this.sanitizeUser(userByGoogleId),
+      };
+    }
+
+    if (mode === 'login') {
+      throw new UnauthorizedException(
+        'Google account not registered. Please sign up with Google first.',
+      );
+    }
+
+    const userByEmail = await this.userRepository.findOne({
+      where: { email: ILike(normalizedEmail) },
+    });
+
+    if (userByEmail) {
+      if (userByEmail.provider !== 'google') {
+        throw new ConflictException(
+          'Email already registered. Please login using email and password.',
+        );
+      }
+      userByEmail.googleId = googleUser.googleId;
+      userByEmail.avatarUrl = googleUser.avatarUrl;
+      const saved = await this.userRepository.save(userByEmail);
+      return {
+        accessToken: this.generateToken(saved),
+        user: this.sanitizeUser(saved),
+      };
+    }
+
+    const newUser = this.userRepository.create({
+      email: normalizedEmail,
+      name: googleUser.name,
+      avatarUrl: googleUser.avatarUrl,
+      googleId: googleUser.googleId,
+      provider: 'google',
+      techStack: [], // default empty array
+    });
+
+    const saved = await this.userRepository.save(newUser);
+    await this.mailService.sendWelcomeEmail(saved.email, saved.name);
+    return {
+      accessToken: this.generateToken(saved),
+      user: this.sanitizeUser(saved),
     };
   }
 

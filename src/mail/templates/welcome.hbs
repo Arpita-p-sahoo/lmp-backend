@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background-color: #4285F4;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 30px;
+            line-height: 1.6;
+            color: #333333;
+        }
+
+        .btn-wrap {
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .button {
+            background-color: #4285F4;
+            color: #ffffff !important;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .footer {
+            background: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #777777;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to Our App!</h1>
+        </div>
+        <div class="content">
+            <p>Hi <strong>{{name}}</strong>,</p>
+            <p>Thanks for signing up with your Google account! We're excited to have you on board.</p>
+            <p>You now have full access to our platform. Click the button below to head over to your dashboard and get
+                started.</p>
+            <div class="btn-wrap">
+                <a href="{{dashboardUrl}}" class="button">Go to Dashboard</a>
+            </div>
+            <p>If you didn't sign up for this account, you can safely ignore this email.</p>
+            <p>Cheers,<br>The Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Your App Name. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -44,6 +44,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (typeof anyRes.message !== 'undefined')
           base.message = anyRes.message as never;
         if (typeof anyRes.error === 'string') base.error = anyRes.error;
+        const retryAfterSeconds = anyRes.retryAfterSeconds;
+        if (
+          typeof retryAfterSeconds === 'number' &&
+          Number.isFinite(retryAfterSeconds)
+        ) {
+          base.details = { retryAfterSeconds };
+        }
       }
 
       response.status(status).json(base);
