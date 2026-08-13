@@ -88,10 +88,10 @@ const isGeminiEnabled =
           synchronize: isTest,
           dropSchema: isTest,
           logging: isTest ? false : !isProd,
-          retryAttempts: 1,
-          retryDelay: 1000,
+          retryAttempts: 5,
+          retryDelay: 3000,
           extra: {
-            connectionTimeoutMillis: 1500,
+            connectionTimeoutMillis: 10000,
           },
         };
         if (isTest) {
