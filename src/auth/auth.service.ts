@@ -165,8 +165,13 @@ export class AuthService {
       techStack: [], // default empty array
     });
 
-    const saved = await this.userRepository.save(newUser);
-    await this.mailService.sendWelcomeEmail(saved.email, saved.name);
+ const saved = await this.userRepository.save(newUser);
+    try {
+      await this.mailService.sendWelcomeEmail(saved.email, saved.name);
+    } catch (err) {
+      // Never let a broken email template or a down SMTP server block sign-up or login.
+      console.error('Failed to send welcome email:', err);
+    }
     return {
       accessToken: this.generateToken(saved),
       user: this.sanitizeUser(saved),
