@@ -125,6 +125,11 @@ export class AuthService {
     });
 
     if (userByGoogleId) {
+      if (mode === 'signup') {
+        throw new ConflictException(
+          'Account already exists. Please login instead.',
+        );
+      }
       return {
         accessToken: this.generateToken(userByGoogleId),
         user: this.sanitizeUser(userByGoogleId),
@@ -147,13 +152,9 @@ export class AuthService {
           'Email already registered. Please login using email and password.',
         );
       }
-      userByEmail.googleId = googleUser.googleId;
-      userByEmail.avatarUrl = googleUser.avatarUrl;
-      const saved = await this.userRepository.save(userByEmail);
-      return {
-        accessToken: this.generateToken(saved),
-        user: this.sanitizeUser(saved),
-      };
+      throw new ConflictException(
+        'Account already exists. Please login instead.',
+      );
     }
 
     const newUser = this.userRepository.create({
